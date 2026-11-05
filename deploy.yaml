@@ -1,0 +1,194 @@
+# Example manifests; needs cert-manager. Replace <TAG>, and capi-system if the
+# webhook runs elsewhere (also in the Certificate dnsNames and the
+# cert-manager.io/inject-ca-from annotation).
+#
+# A private CA signs the serving certificate and is what cainjector puts in
+# caBundle, so caBundle only changes when the CA does, not on every serving
+# certificate renewal (a self-signed serving certificate is its own CA: each
+# renewal, the API server rejects the pods until caBundle and the mounted
+# Secret have both caught up).
+# https://cert-manager.io/docs/configuration/selfsigned/#bootstrapping-ca-issuers
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ignition-converter-selfsigned
+  namespace: capi-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ignition-converter-ca
+  namespace: capi-system
+spec:
+  isCA: true
+  commonName: ignition-converter-ca
+  secretName: ignition-converter-ca
+  # Ten years. A renewed CA changes caBundle at once: renew the serving
+  # certificate right after (cmctl renew -n capi-system ignition-converter).
+  duration: 87600h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: ignition-converter-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ignition-converter-ca
+  namespace: capi-system
+spec:
+  ca:
+    secretName: ignition-converter-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ignition-converter
+  namespace: capi-system
+spec:
+  secretName: ignition-converter-tls
+  dnsNames:
+    - ignition-converter.capi-system.svc
+    - ignition-converter.capi-system.svc.cluster.local
+  issuerRef:
+    name: ignition-converter-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ignition-converter
+  namespace: capi-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ignition-converter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ignition-converter
+    spec:
+      # The webhook never calls the Kubernetes API.
+      automountServiceAccountToken: false
+      # failurePolicy Fail: with no replica up, no bootstrap Secret can be
+      # written. One node going down must not take both.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ignition-converter
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ignition-converter
+          image: ghcr.io/spnngl/images/ignition-converter:<TAG>
+          args:
+            - --addr=:8443
+            - --cert-file=/tls/tls.crt
+            - --key-file=/tls/tls.key
+          ports:
+            - name: https
+              containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: ignition-converter-tls
+---
+# Same reason as the spread: a drain never evicts the last replica.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ignition-converter
+  namespace: capi-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ignition-converter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ignition-converter
+  namespace: capi-system
+spec:
+  selector:
+    app.kubernetes.io/name: ignition-converter
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: ignition-converter
+  annotations:
+    # cert-manager's cainjector fills in caBundle with the CA, not the serving
+    # certificate.
+    cert-manager.io/inject-ca-from: capi-system/ignition-converter-ca
+webhooks:
+  - name: ignition-converter.capi-system.svc
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    # Fail closed: a Secret left in Ignition 2.x would be rejected at boot by
+    # Fedora CoreOS, far from the cause.
+    failurePolicy: Fail
+    timeoutSeconds: 10
+    clientConfig:
+      service:
+        name: ignition-converter
+        namespace: capi-system
+        path: /mutate
+    rules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [secrets]
+    # Only Cluster API bootstrap Secrets. This also keeps the webhook's own TLS
+    # Secret out of scope, which would otherwise deadlock its startup.
+    objectSelector:
+      matchExpressions:
+        - key: cluster.x-k8s.io/cluster-name
+          operator: Exists
+    matchConditions:
+      - name: ignition-bootstrap-secret
+        # Data values are base64 in the API object, so only the key is matched;
+        # the handler checks that format is "ignition".
+        expression: >-
+          object.type == 'cluster.x-k8s.io/secret' &&
+          has(object.data) && 'format' in object.data

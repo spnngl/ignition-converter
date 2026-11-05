@@ -1,0 +1,17 @@
+*.local*
+PLAN*.md
+
+# make build, make dist
+/ignition-converter
+/dist/
+
+# Test binaries, coverage, profiles
+*.test
+*.out
+*.prof
+
+# Go workspace
+go.work
+go.work.sum
+
+.DS_Store
