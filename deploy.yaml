@@ -98,6 +98,13 @@ spec:
           ports:
             - name: https
               containerPort: 8443
+          # The Service keeps routing to a terminating pod for a moment: keep
+          # serving through it, then SIGTERM closes the listener. sleep, not
+          # exec: the image has no shell. Kubernetes 1.30 and later.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
           readinessProbe:
             httpGet:
               path: /healthz
