@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/spnngl/ignition-converter/compare/v0.1.1...v0.1.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **deploy:** serve until the Service drops a terminating pod ([62bc47a](https://github.com/spnngl/ignition-converter/commit/62bc47a6823980f0f49850a8d37a81b3769bb36b))
+* end the shutdown within the pod's grace period ([81fcfb3](https://github.com/spnngl/ignition-converter/commit/81fcfb3a3eb2cbf45c78c8f57b03b8d162b9847a))
+
 ## [0.1.1](https://github.com/spnngl/ignition-converter/compare/v0.1.0...v0.1.1) (2026-11-05)
 
 
