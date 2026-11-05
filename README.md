@@ -53,6 +53,8 @@ Linux Config; CABPK's own template ignores it) becomes `overwrite: false` plus
 | `--version`   | false   | Print the version and exit |
 
 The certificate is reloaded on every handshake, so renewals need no restart.
+On SIGTERM it stops accepting connections, answers the reviews in flight and
+exits 0.
 Endpoints: `POST /mutate` (AdmissionReview v1), `GET /healthz`.
 
 ## Deploy

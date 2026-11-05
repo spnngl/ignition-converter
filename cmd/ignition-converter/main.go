@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -76,6 +79,27 @@ func main() {
 			},
 		},
 	}
+	if err := serve(srv); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// serve runs srv until SIGTERM (the kubelet stopping the pod) or SIGINT, then
+// shuts it down: it accepts no new connection and answers the reviews in
+// flight, which the signal's default action would cut.
+func serve(srv *http.Server) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+	errc := make(chan error, 1)
 	// Certificates come from TLSConfig, hence the empty file arguments.
-	log.Fatal(srv.ListenAndServeTLS("", ""))
+	go func() { errc <- srv.ListenAndServeTLS("", "") }()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+	// WriteTimeout bounds a review in flight.
+	ctx, cancel := context.WithTimeout(context.Background(), srv.WriteTimeout)
+	defer cancel()
+	return srv.Shutdown(ctx)
 }
