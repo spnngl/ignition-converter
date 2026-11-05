@@ -4,13 +4,17 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -55,7 +59,6 @@ func main() {
 	mux.HandleFunc("GET /healthz", handleHealthz)
 
 	srv := &http.Server{
-		Addr:    *addr,
 		Handler: mux,
 		// The API server gives up on a webhook after its timeoutSeconds, 30 s at
 		// most: a connection still reading or writing past that is stuck.
@@ -76,6 +79,37 @@ func main() {
 			},
 		},
 	}
+	// SIGTERM: the kubelet stopping the pod.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *addr)
+	if err == nil {
+		err = serve(ctx, srv, ln)
+	}
+	stop()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// shutdownTimeout bounds the wait for the reviews in flight: the API server
+// stops waiting after the webhook's timeoutSeconds (10 in deploy.yaml), and the
+// kubelet kills the pod after terminationGracePeriodSeconds (30 by default,
+// deploy.yaml's preStop sleep included).
+const shutdownTimeout = 10 * time.Second
+
+// serve serves srv over TLS on ln until ctx ends, then shuts it down: it
+// accepts no new connection and answers the reviews in flight, which a
+// signal's default action would cut. It returns nil after a clean shutdown.
+func serve(ctx context.Context, srv *http.Server, ln net.Listener) error {
+	errc := make(chan error, 1)
 	// Certificates come from TLSConfig, hence the empty file arguments.
-	log.Fatal(srv.ListenAndServeTLS("", ""))
+	go func() { errc <- srv.ServeTLS(ln, "", "") }()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	defer cancel()
+	return srv.Shutdown(ctx)
 }
