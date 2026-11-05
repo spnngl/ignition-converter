@@ -6,7 +6,7 @@ require (
 	github.com/clarketm/json v1.17.1
 	github.com/coreos/ign-converter v0.0.0-20260420141348-5351d3e16080
 	github.com/coreos/ignition v0.35.0
-	github.com/coreos/ignition/v2 v2.26.0
+	github.com/coreos/ignition/v2 v2.28.0
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
 )
@@ -16,7 +16,7 @@ require (
 	github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142 // indirect
-	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
