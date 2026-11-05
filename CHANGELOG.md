@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/spnngl/ignition-converter/compare/v0.1.0...v0.1.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* shut down gracefully on SIGTERM ([16a6cc3](https://github.com/spnngl/ignition-converter/commit/16a6cc3a8ce398ebdff7296f3e692b3d70e2c1c4))
+
 ## 0.1.0 (2026-11-05)
 
 
