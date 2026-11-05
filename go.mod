@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/clarketm/json v1.17.1
 	github.com/coreos/ign-converter v0.0.0-20260420141348-5351d3e16080
-	github.com/coreos/ignition v0.35.0
+	github.com/coreos/ignition/v2 v2.14.0
 	github.com/coreos/ignition/v2 v2.28.0
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
