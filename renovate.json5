@@ -1,0 +1,19 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    // The shared preset at HEAD of main.
+    "extends": ["github>spnngl/.github:renovate.default.json5"],
+    // Keeps go.mod and go.sum free of stale indirect dependencies.
+    "postUpdateOptions": ["gomodTidy"],
+    // Pull requests for dependencies with a known vulnerability, whatever their schedule.
+    "osvVulnerabilityAlerts": true,
+    "packageRules": [
+        {
+            // CI and releases build with the go.mod version, and a webhook serving TLS needs the
+            // latest fixes. Renovate leaves the `go` directive alone by default.
+            "matchManagers": ["gomod"],
+            "matchDepNames": ["go"],
+            "matchDepTypes": ["golang"],
+            "rangeStrategy": "bump"
+        }
+    ]
+}
