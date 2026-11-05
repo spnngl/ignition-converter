@@ -61,7 +61,9 @@ Endpoints: `POST /mutate` (AdmissionReview v1), `GET /healthz`.
 
 [`deploy.yaml`](deploy.yaml) holds a cert-manager private CA (self-signed
 `Issuer`, CA `Certificate`, CA `Issuer`) and the serving `Certificate` it
-signs, the `Deployment` (two replicas spread over nodes), its
+signs, the `Deployment` (two replicas spread over nodes, a 5 s `preStop`
+sleep so a terminating pod serves until the Service drops it; Kubernetes
+1.30 or later), its
 `PodDisruptionBudget` and `Service`, and the `MutatingWebhookConfiguration`
 (`caBundle` injected from the CA certificate through the
 `cert-manager.io/inject-ca-from` annotation, so serving certificate renewals
