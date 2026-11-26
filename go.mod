@@ -7,8 +7,8 @@ require (
 	github.com/coreos/ign-converter v0.0.0-20260420141348-5351d3e16080
 	github.com/coreos/ignition v0.35.0
 	github.com/coreos/ignition/v2 v2.28.0
-	k8s.io/api v0.37.2
-	k8s.io/apimachinery v0.37.2
+	k8s.io/api v0.37.3
+	k8s.io/apimachinery v0.37.3
 )
 
 require (
